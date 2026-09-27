@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   CheckCircle2,
   ClipboardList,
@@ -7,52 +8,72 @@ import {
 } from "lucide-react";
 import Card from "../../components/common/Card";
 import StatusBadge from "../../components/common/SatatusBadge";
+import api from "../../services/api";
 
 const AdminDashboard = () => {
-  const recentProjects = [
-    {
-      id: 1,
-      name: "E-commerce Website",
-      client: "Rahim Ahmed",
-      progress: 72,
-      status: "In Progress",
-    },
-    {
-      id: 2,
-      name: "Business Website",
-      client: "Nadia Karim",
-      progress: 100,
-      status: "Completed",
-    },
-    {
-      id: 3,
-      name: "Mobile Application",
-      client: "Tanvir Hasan",
-      progress: 35,
-      status: "In Progress",
-    },
-  ];
+  const [clients, setClients] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const recentTasks = [
-    {
-      id: 1,
-      title: "Homepage UI implementation",
-      project: "E-commerce Website",
-      status: "In Progress",
-    },
-    {
-      id: 2,
-      title: "Payment integration",
-      project: "E-commerce Website",
-      status: "Pending",
-    },
-    {
-      id: 3,
-      title: "Final testing",
-      project: "Business Website",
-      status: "Completed",
-    },
-  ];
+  const fetchDashboardData = async () => {
+    try {
+      const [clientsResponse, projectsResponse, tasksResponse, paymentsResponse] =
+        await Promise.all([
+          api.get("/users/clients"),
+          api.get("/projects"),
+          api.get("/tasks"),
+          api.get("/payments"),
+        ]);
+
+      setClients(clientsResponse.data.clients || []);
+      setProjects(projectsResponse.data.projects || []);
+      setTasks(tasksResponse.data.tasks || []);
+      setPayments(paymentsResponse.data.payments || []);
+    } catch (error) {
+      console.error("Dashboard Data Error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const completedTasks = tasks.filter(
+    (task) => task.status === "completed"
+  );
+
+  const activeTasks = tasks.filter(
+    (task) =>
+      task.status === "todo" ||
+      task.status === "in-progress"
+  );
+
+  const pendingPayments = payments.filter(
+    (payment) =>
+      payment.status === "pending" ||
+      payment.status === "unpaid" ||
+      payment.status === "overdue"
+  );
+
+  const pendingPaymentAmount = pendingPayments.reduce(
+    (total, payment) => total + Number(payment.amount || 0),
+    0
+  );
+
+  const recentProjects = projects.slice(0, 5);
+  const recentTasks = tasks.slice(0, 5);
+
+  if (loading) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
+        Loading dashboard...
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -60,6 +81,7 @@ const AdminDashboard = () => {
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">
           Admin Dashboard
         </h1>
+
         <p className="mt-1 text-sm text-slate-500">
           Manage clients, projects, tasks and payments.
         </p>
@@ -70,7 +92,10 @@ const AdminDashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500">Total Clients</p>
-              <h3 className="mt-2 text-2xl font-bold text-slate-900">48</h3>
+
+              <h3 className="mt-2 text-2xl font-bold text-slate-900">
+                {clients.length}
+              </h3>
             </div>
 
             <div className="rounded-xl bg-slate-100 p-3 text-slate-700">
@@ -83,7 +108,10 @@ const AdminDashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500">Projects</p>
-              <h3 className="mt-2 text-2xl font-bold text-slate-900">26</h3>
+
+              <h3 className="mt-2 text-2xl font-bold text-slate-900">
+                {projects.length}
+              </h3>
             </div>
 
             <div className="rounded-xl bg-slate-100 p-3 text-slate-700">
@@ -96,7 +124,10 @@ const AdminDashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500">Active Tasks</p>
-              <h3 className="mt-2 text-2xl font-bold text-slate-900">84</h3>
+
+              <h3 className="mt-2 text-2xl font-bold text-slate-900">
+                {activeTasks.length}
+              </h3>
             </div>
 
             <div className="rounded-xl bg-slate-100 p-3 text-slate-700">
@@ -109,7 +140,10 @@ const AdminDashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500">Completed</p>
-              <h3 className="mt-2 text-2xl font-bold text-slate-900">142</h3>
+
+              <h3 className="mt-2 text-2xl font-bold text-slate-900">
+                {completedTasks.length}
+              </h3>
             </div>
 
             <div className="rounded-xl bg-slate-100 p-3 text-slate-700">
@@ -121,9 +155,12 @@ const AdminDashboard = () => {
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-slate-500">Pending Payments</p>
+              <p className="text-sm text-slate-500">
+                Pending Payments
+              </p>
+
               <h3 className="mt-2 text-2xl font-bold text-slate-900">
-                ৳185K
+                ৳{pendingPaymentAmount.toLocaleString()}
               </h3>
             </div>
 
@@ -140,60 +177,73 @@ const AdminDashboard = () => {
           description="Latest projects across your client workspace."
         >
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[650px]">
-              <thead>
-                <tr className="border-b border-slate-100 text-left">
-                  <th className="pb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Project
-                  </th>
-                  <th className="pb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Client
-                  </th>
-                  <th className="pb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Progress
-                  </th>
-                  <th className="pb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Status
-                  </th>
-                </tr>
-              </thead>
+            {recentProjects.length === 0 ? (
+              <p className="py-8 text-center text-sm text-slate-400">
+                No projects found.
+              </p>
+            ) : (
+              <table className="w-full min-w-[650px]">
+                <thead>
+                  <tr className="border-b border-slate-100 text-left">
+                    <th className="pb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Project
+                    </th>
 
-              <tbody>
-                {recentProjects.map((project) => (
-                  <tr
-                    key={project.id}
-                    className="border-b border-slate-50 last:border-0"
-                  >
-                    <td className="py-4 text-sm font-medium text-slate-900">
-                      {project.name}
-                    </td>
+                    <th className="pb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Client
+                    </th>
 
-                    <td className="py-4 text-sm text-slate-500">
-                      {project.client}
-                    </td>
+                    <th className="pb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Progress
+                    </th>
 
-                    <td className="py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-100">
-                          <div
-                            className="h-full rounded-full bg-slate-900"
-                            style={{ width: `${project.progress}%` }}
-                          />
-                        </div>
-
-                        <span className="text-xs font-medium text-slate-500">
-                          {project.progress}%
-                        </span>
-                      </div>
-                    </td>
-
-                    <td className="py-4">
-                      <StatusBadge status={project.status} />
-                    </td>
+                    <th className="pb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Status
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+
+                <tbody>
+                  {recentProjects.map((project) => (
+                    <tr
+                      key={project._id}
+                      className="border-b border-slate-50 last:border-0"
+                    >
+                      <td className="py-4 text-sm font-medium text-slate-900">
+                        {project.name}
+                      </td>
+
+                      <td className="py-4 text-sm text-slate-500">
+                        {project.client?.name || "Unknown"}
+                      </td>
+
+                      <td className="py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-100">
+                            <div
+                              className="h-full rounded-full bg-slate-900"
+                              style={{
+                                width: `${project.progress || 0}%`,
+                              }}
+                            />
+                          </div>
+
+                          <span className="text-xs font-medium text-slate-500">
+                            {project.progress || 0}%
+                          </span>
+                        </div>
+                      </td>
+
+                      <td className="py-4">
+                        <StatusBadge
+                          status={project.status || "pending"}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </Card>
 
@@ -202,26 +252,34 @@ const AdminDashboard = () => {
           description="Latest task activity."
         >
           <div className="space-y-4">
-            {recentTasks.map((task) => (
-              <div
-                key={task.id}
-                className="rounded-xl border border-slate-100 p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-sm font-semibold text-slate-900">
-                      {task.title}
-                    </h3>
+            {recentTasks.length === 0 ? (
+              <p className="py-8 text-center text-sm text-slate-400">
+                No tasks found.
+              </p>
+            ) : (
+              recentTasks.map((task) => (
+                <div
+                  key={task._id}
+                  className="rounded-xl border border-slate-100 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-900">
+                        {task.title}
+                      </h3>
 
-                    <p className="mt-1 text-xs text-slate-500">
-                      {task.project}
-                    </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {task.project?.name || "Project"}
+                      </p>
+                    </div>
+
+                    <StatusBadge
+                      status={task.status || "todo"}
+                    />
                   </div>
-
-                  <StatusBadge status={task.status} />
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </Card>
       </div>
