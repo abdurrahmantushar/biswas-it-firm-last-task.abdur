@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import {
+  FileText,
+  Plus,
+  Search,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import Button from "../../components/common/Button";
 import Card from "../../components/common/Card";
 import Input from "../../components/common/Input";
@@ -18,6 +24,8 @@ const AdminProjects = () => {
   const [search, setSearch] = useState("");
   const [editingProject, setEditingProject] = useState(null);
   const [clients, setClients] = useState([]);
+  const [files, setFiles] = useState([]);
+  const [uploading, setUploading] = useState(false);
 
   const { projects, loading, setProjects } = useProjects();
 
@@ -31,6 +39,12 @@ const AdminProjects = () => {
     progress: 0,
   });
 
+  const [fileData, setFileData] = useState({
+    client: "",
+    project: "",
+    file: null,
+  });
+
   const filteredProjects = projects.filter((project) =>
     `${project.name} ${project.client?.name || ""}`
       .toLowerCase()
@@ -40,6 +54,7 @@ const AdminProjects = () => {
   const fetchClients = async () => {
     try {
       const response = await api.get("/users/clients");
+
       setClients(response.data.clients || []);
     } catch (error) {
       console.error(error);
@@ -47,8 +62,20 @@ const AdminProjects = () => {
     }
   };
 
+  const fetchFiles = async () => {
+    try {
+      const response = await api.get("/files");
+
+      setFiles(response.data.files || []);
+    } catch (error) {
+      console.error("Fetch Files Error:", error);
+      setFiles([]);
+    }
+  };
+
   useEffect(() => {
     fetchClients();
+    fetchFiles();
   }, []);
 
   const handleChange = (e) => {
@@ -162,6 +189,70 @@ const AdminProjects = () => {
     }
   };
 
+  const handleFileUpload = async (e) => {
+    e.preventDefault();
+
+    if (
+      !fileData.client ||
+      !fileData.project ||
+      !fileData.file
+    ) {
+      return;
+    }
+
+    try {
+      setUploading(true);
+
+      const formData = new FormData();
+
+      formData.append("file", fileData.file);
+      formData.append("client", fileData.client);
+      formData.append("project", fileData.project);
+
+      await api.post("/files/upload", formData);
+
+      setFileData({
+        client: "",
+        project: "",
+        file: null,
+      });
+
+      e.target.reset();
+
+      await fetchFiles();
+    } catch (error) {
+      console.error("Upload File Error:", error);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteFile = async (id) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this file?"
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await api.delete(`/files/${id}`);
+
+      setFiles((prev) =>
+        prev.filter((file) => file._id !== id)
+      );
+    } catch (error) {
+      console.error("Delete File Error:", error);
+    }
+  };
+
+  const formatSize = (size) => {
+    if (!size) return "—";
+
+    const mb = size / (1024 * 1024);
+
+    return `${mb.toFixed(1)} MB`;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -222,16 +313,210 @@ const AdminProjects = () => {
         )}
       </Card>
 
+      <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+        <Card>
+          <div className="mb-5">
+            <h2 className="text-base font-bold text-slate-900">
+              Upload Project File
+            </h2>
+
+            <p className="mt-1 text-xs text-slate-400">
+              Share files with a client through their project.
+            </p>
+          </div>
+
+          <form
+            onSubmit={handleFileUpload}
+            className="space-y-4"
+          >
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Client
+              </label>
+
+              <select
+                value={fileData.client}
+                onChange={(e) =>
+                  setFileData((prev) => ({
+                    ...prev,
+                    client: e.target.value,
+                  }))
+                }
+                required
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400"
+              >
+                <option value="">Select client</option>
+
+                {clients.map((client) => (
+                  <option
+                    key={client._id}
+                    value={client._id}
+                  >
+                    {client.name}
+                    {client.company
+                      ? ` - ${client.company}`
+                      : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Project
+              </label>
+
+              <select
+                value={fileData.project}
+                onChange={(e) =>
+                  setFileData((prev) => ({
+                    ...prev,
+                    project: e.target.value,
+                  }))
+                }
+                required
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400"
+              >
+                <option value="">Select project</option>
+
+                {projects.map((project) => (
+                  <option
+                    key={project._id}
+                    value={project._id}
+                  >
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                File
+              </label>
+
+              <input
+                type="file"
+                onChange={(e) =>
+                  setFileData((prev) => ({
+                    ...prev,
+                    file: e.target.files?.[0] || null,
+                  }))
+                }
+                required
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-600"
+              />
+            </div>
+
+            <Button
+              type="submit"
+              disabled={uploading}
+              className="w-full justify-center"
+            >
+              <Upload size={16} />
+
+              {uploading
+                ? "Uploading..."
+                : "Upload File"}
+            </Button>
+          </form>
+        </Card>
+
+        <Card>
+          <div className="mb-5">
+            <h2 className="text-base font-bold text-slate-900">
+              Uploaded Files
+            </h2>
+
+            <p className="mt-1 text-xs text-slate-400">
+              {files.length} files uploaded
+            </p>
+          </div>
+
+          {files.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center">
+              <FileText
+                className="mx-auto text-slate-300"
+                size={30}
+              />
+
+              <p className="mt-3 text-sm font-medium text-slate-600">
+                No files uploaded yet.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {files.map((file) => (
+                <div
+                  key={file._id}
+                  className="flex flex-col gap-3 rounded-xl border border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="shrink-0 rounded-lg bg-slate-100 p-2 text-slate-600">
+                      <FileText size={18} />
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-900">
+                        {file.name}
+                      </p>
+
+                      <p className="mt-1 text-xs text-slate-400">
+                        {file.client?.name || "Client"}{" "}
+                        •{" "}
+                        {file.project?.name || "Project"}
+                      </p>
+
+                      <p className="mt-1 text-xs text-slate-400">
+                        {formatSize(file.size)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={file.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+                    >
+                      View
+                    </a>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleDeleteFile(file._id)
+                      }
+                      className="rounded-lg border border-red-100 p-2 text-red-500 transition hover:bg-red-50"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+
       <Modal
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
           setEditingProject(null);
         }}
-        title={editingProject ? "Edit Project" : "Add New Project"}
+        title={
+          editingProject
+            ? "Edit Project"
+            : "Add New Project"
+        }
         size="md"
       >
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-5"
+        >
           <Input
             label="Project Name"
             name="name"
@@ -264,7 +549,10 @@ const AdminProjects = () => {
               <option value="">Select client</option>
 
               {clients.map((client) => (
-                <option key={client._id} value={client._id}>
+                <option
+                  key={client._id}
+                  value={client._id}
+                >
                   {client.name}
                   {client.company
                     ? ` - ${client.company}`
@@ -305,8 +593,12 @@ const AdminProjects = () => {
               className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400"
             >
               <option value="active">Active</option>
-              <option value="in-progress">In Progress</option>
-              <option value="completed">Completed</option>
+              <option value="in-progress">
+                In Progress
+              </option>
+              <option value="completed">
+                Completed
+              </option>
               <option value="pending">Pending</option>
             </select>
           </div>
@@ -335,7 +627,9 @@ const AdminProjects = () => {
             </Button>
 
             <Button type="submit">
-              {editingProject ? "Update Project" : "Create Project"}
+              {editingProject
+                ? "Update Project"
+                : "Create Project"}
             </Button>
           </div>
         </form>

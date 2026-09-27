@@ -1,5 +1,4 @@
-import dotenv from "dotenv";
-dotenv.config();
+
 
 import express from "express";
 import cors from "cors";
@@ -14,6 +13,7 @@ import userRoutes from "./routes/userRoutes.js";
 import supportRequestRoutes from "./routes/supportRequestRoutes.js";
 import updateRoutes from "./routes/updateRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
+import fileRoutes from "./routes/fileRoutes.js";
 
 const app = express();
 
@@ -47,6 +47,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/support-requests", supportRequestRoutes);
 app.use("/api/updates", updateRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/files", fileRoutes);
 
 const PORT = process.env.PORT || 4500;
 
